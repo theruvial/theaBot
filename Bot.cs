@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using System.Reflection;
 using theaBot.Services;
 
@@ -10,11 +11,11 @@ namespace theaBot
 {
     public class Bot
     {
-        private DiscordSocketClient _bot;
-        private InteractionService _commands;
+        private DiscordSocketClient _bot = default!;
+        private InteractionService _commands = default!;
         private ulong _testGuildId;
-        private IConfiguration _config;
-        
+        private IConfiguration _config = default!;        
+
         public async Task RunAsync()
         {
             // Here we deserialize the config Json object
@@ -25,33 +26,27 @@ namespace theaBot
             // Here we assign some variables for later use
             _config = builder.Build();
             _testGuildId = ulong.Parse(_config["guildId"]);
-                      
-            using (var services = ConfigureServices())
-            {
-                var bot = services.GetRequiredService<DiscordSocketClient>();
-                var commands = services.GetRequiredService<InteractionService>();
-                _bot = bot;
-                _commands = commands;
-                
-                // This is where we subscribe to events;
-                _bot.Log += Log;
-                _bot.UserJoined += AnnounceUserJoined;
-                _bot.Ready += ReadyAsync;
-
-                //Startup Bot
-                await _bot.LoginAsync(TokenType.Bot, _config["token"]);
-                await _bot.StartAsync();
-
-                await services.GetRequiredService<CommandHandler>().InitializeAsync();
-                
-
-                // Delay bot shutdown indefinitely so bot doesn't prematurely shutdown
-                await Task.Delay(Timeout.Infinite);
-            }
             
+            using ServiceProvider services = ConfigureServices();
+            var bot = services.GetRequiredService<DiscordSocketClient>();
+            var commands = services.GetRequiredService<InteractionService>();
+            _bot = bot;
+            _commands = commands;
+
+            // This is where we subscribe to events;
+            _bot.Log += Log;
+            _bot.UserJoined += AnnounceUserJoined;
+            _bot.Ready += ReadyAsync;
+
+            //Startup Bot            
+            await _bot.LoginAsync(TokenType.Bot, _config["token"]);
+            await _bot.StartAsync();
+
+            await services.GetRequiredService<CommandHandler>().InitializeAsync();
             
 
-            
+            // Delay bot shutdown indefinitely so bot doesn't prematurely shutdown
+            await Task.Delay(Timeout.Infinite);
         }
 
         //Basic logging function
@@ -60,6 +55,8 @@ namespace theaBot
             Console.WriteLine(msg.ToString());
             return Task.CompletedTask;
         }
+
+        
 
         // Function to announce new user joining server
         private async Task AnnounceUserJoined(SocketGuildUser user)
@@ -80,7 +77,7 @@ namespace theaBot
             {
                 await _commands.RegisterCommandsGloballyAsync(true);
             }
-            Console.WriteLine($"Connected as -> [{_bot.CurrentUser}]");
+            Console.WriteLine($"Connected as -> [{_bot.CurrentUser.Username}]");
         }
 
         private ServiceProvider ConfigureServices()
@@ -91,9 +88,11 @@ namespace theaBot
                 .AddSingleton(_config)
                 .AddSingleton<DiscordSocketClient>()
                 .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
-                .AddSingleton<CommandHandler>()
+                .AddSingleton<CommandHandler>()                
                 .BuildServiceProvider();
         }
+
+        
 
         static bool IsDebug()
         {

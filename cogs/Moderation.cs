@@ -16,8 +16,7 @@ using theaBot.Services;
 namespace theaBot.cogs
 {
     public class Moderation : InteractionModuleBase<SocketInteractionContext>
-    {
-        public InteractionService Commands { get; set; }
+    {       
         private readonly CommandHandler _handler;
         private readonly DiscordSocketClient _client;        
         private readonly IConfiguration _config;
@@ -67,6 +66,16 @@ namespace theaBot.cogs
         public async Task Echo(string userMessage)
         {
             await RespondAsync(userMessage);
+        }
+
+        [SlashCommand("purge", "Deletes the amount of messages specified by the user")]
+        [RequireUserPermission(GuildPermission.ManageMessages)]
+        public async Task Purge(int amount)
+        {
+            ITextChannel textChannel = (ITextChannel)_handler.Context.Channel;
+            var messages = await textChannel.GetMessagesAsync(amount).FlattenAsync();
+            await textChannel.DeleteMessagesAsync(messages);
+            await RespondAsync($"Deleted {amount} messages");            
         }
 
     }

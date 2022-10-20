@@ -63,3 +63,5 @@ E:\Coding Shit\theaBot\bin\Debug\net6.0\Microsoft.Extensions.FileProviders.Abstr
 E:\Coding Shit\theaBot\bin\Debug\net6.0\Microsoft.Extensions.FileProviders.Physical.dll
 E:\Coding Shit\theaBot\bin\Debug\net6.0\Microsoft.Extensions.FileSystemGlobbing.dll
 E:\Coding Shit\theaBot\bin\Debug\net6.0\Microsoft.Extensions.Primitives.dll
+E:\Coding Shit\theaBot\bin\Debug\net6.0\Elasticsearch.Net.dll
+E:\Coding Shit\theaBot\bin\Debug\net6.0\Nest.dll

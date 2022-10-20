@@ -7,6 +7,8 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using Npgsql;
+using Microsoft.Extensions.Configuration;
 
 namespace theaBot.Services
 {
@@ -15,19 +17,22 @@ namespace theaBot.Services
         private readonly DiscordSocketClient _client;
         private readonly InteractionService _commands;
         private readonly IServiceProvider _services;
-        public IInteractionContext Context;
+        private readonly IConfiguration _config;
+        
+        public IInteractionContext? Context;        
 
-        public CommandHandler(DiscordSocketClient client, InteractionService commands, IServiceProvider services)
+        public CommandHandler(DiscordSocketClient client, InteractionService commands, IServiceProvider services, IConfiguration config)
         {
             _client = client;
             _commands = commands;
             _services = services;
+            _config = config;
         }
 
         public async Task InitializeAsync()
         {
             // add the public modules that inherit InteractionModuleBase<T> to the InteractionService
-            await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);
+            await _commands.AddModulesAsync(Assembly.GetEntryAssembly(), _services);            
 
             // process the InteractionCreated payloads to execute Interactions commands
             _client.InteractionCreated += HandleInteraction;
@@ -37,6 +42,8 @@ namespace theaBot.Services
             _commands.ContextCommandExecuted += ContextCommandExecuted;
             _commands.ComponentCommandExecuted += ComponentCommandExecuted;
         }
+
+        
 
         private Task ComponentCommandExecuted(ComponentCommandInfo arg1, Discord.IInteractionContext arg2, IResult arg3)
         {

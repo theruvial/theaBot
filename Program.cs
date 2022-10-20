@@ -1,11 +1,7 @@
-using System;
-using Newtonsoft.Json;
-using theaBot;
-//using theaBot.cogs;
-
-public class Program
+namespace theaBot
 {
-    
-    public static void Main(string[] args) => new Bot().RunAsync().GetAwaiter().GetResult();
-    
+    public class Program
+    {
+        public static void Main() => new Bot().RunAsync().GetAwaiter().GetResult();
+    }
 }
