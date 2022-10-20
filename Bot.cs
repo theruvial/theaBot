@@ -1,74 +1,109 @@
-﻿using DSharpPlus;
-using DSharpPlus.CommandsNext;
-using DSharpPlus.Entities;
-using DSharpPlus.EventArgs;
-using DSharpPlus.SlashCommands;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using Discord;
+using Discord.Interactions;
+using Discord.WebSocket;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using theaBot.cogs;
+using theaBot.Services;
 
 namespace theaBot
 {
     public class Bot
     {
-        
-        public DiscordClient Client { get; private set; }
-        public SlashCommandsExtension Slash { get; private set; }
-        
+        private DiscordSocketClient _bot;
+        private InteractionService _commands;
+        private ulong _testGuildId;
+        private IConfiguration _config;
         
         public async Task RunAsync()
         {
-            var json = string.Empty;
+            // Here we deserialize the config Json object
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile(path: "config.json");
 
-            using (var fs = File.OpenRead("config.json"))
-                using (var sr = new StreamReader(fs, new UTF8Encoding(false)))
-                json = await sr.ReadToEndAsync().ConfigureAwait(false);
-            
-            var configJson = JsonConvert.DeserializeObject<ConfigJson>(json);
-
-            //Console.WriteLine(configJson.Token);
-
-
-            var config = new DiscordConfiguration
+            // Here we assign some variables for later use
+            _config = builder.Build();
+            _testGuildId = ulong.Parse(_config["guildId"]);
+                      
+            using (var services = ConfigureServices())
             {
-                Token = configJson.Token,
-                TokenType = TokenType.Bot,
-                AutoReconnect = true,
-                MinimumLogLevel = LogLevel.Debug
-            };            
+                var bot = services.GetRequiredService<DiscordSocketClient>();
+                var commands = services.GetRequiredService<InteractionService>();
+                _bot = bot;
+                _commands = commands;
+                
+                // This is where we subscribe to events;
+                _bot.Log += Log;
+                _bot.UserJoined += AnnounceUserJoined;
+                _bot.Ready += ReadyAsync;
 
-            Client = new DiscordClient(config);
+                //Startup Bot
+                await _bot.LoginAsync(TokenType.Bot, _config["token"]);
+                await _bot.StartAsync();
 
-            Client.Ready += OnClientReady;
+                await services.GetRequiredService<CommandHandler>().InitializeAsync();
+                
 
-
-            var commandsConfig = new SlashCommandsConfiguration();
+                // Delay bot shutdown indefinitely so bot doesn't prematurely shutdown
+                await Task.Delay(Timeout.Infinite);
+            }
             
             
 
-            //Commands = Client.UseCommandsNext(commandsConfig);
-            Slash = Client.UseSlashCommands(commandsConfig);
-
-            Slash.RegisterCommands<Moderation>(454792201633792001) ;
             
-            //Commands.RefreshCommands();
-            
-
-            await Client.ConnectAsync();
-                       
-            await Task.Delay(-1);
         }
 
-        private Task OnClientReady(DiscordClient c, ReadyEventArgs e)
+        //Basic logging function
+        private Task Log(LogMessage msg)
         {
-            Console.WriteLine($"Registered Class Count: {Slash.RegisteredCommands.Count}");            
+            Console.WriteLine(msg.ToString());
             return Task.CompletedTask;
         }
+
+        // Function to announce new user joining server
+        private async Task AnnounceUserJoined(SocketGuildUser user)
+        {
+            var guild = user.Guild;
+            var channel = guild.DefaultChannel;
+            await channel.SendMessageAsync($"Welcome, {user.Mention}");
+        }
+        
+        private async Task ReadyAsync()
+        {
+            if (IsDebug())
+            {
+                Console.WriteLine($"In debug mode, adding commands to {_testGuildId}...");
+                await _commands.RegisterCommandsToGuildAsync(_testGuildId);
+            }
+            else
+            {
+                await _commands.RegisterCommandsGloballyAsync(true);
+            }
+            Console.WriteLine($"Connected as -> [{_bot.CurrentUser}]");
+        }
+
+        private ServiceProvider ConfigureServices()
+        {
+            // this returns a service provider that is used later to call for those services
+            // we can add types we have access to here
+            return new ServiceCollection()
+                .AddSingleton(_config)
+                .AddSingleton<DiscordSocketClient>()
+                .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
+                .AddSingleton<CommandHandler>()
+                .BuildServiceProvider();
+        }
+
+        static bool IsDebug()
+        {
+            #if DEBUG
+                return true;
+            #else
+                return false;
+            #endif
+        }
+
+        
     }
 }
