@@ -1,2 +1,2 @@
 # theaBot
-A discord bot written with Discord.NET
+My discord bot repo
